@@ -1,10 +1,11 @@
-from enum import IntEnum
+from typing import Tuple
 
+BaseColorTheme = {"BG": (0, 0, 0),
+                  1: (255, 0, 0),
+                  2: (0, 0, 255),
+                  3: (0, 255, 0),
+                  4: (120, 60, 60),
+                  5: (250, 150, 0),
+                  6: (255, 0, 255)}
 
-class BaseColorTheme(IntEnum):
-    RED = 1
-    BLUE = 2
-    GREEN = 3
-    YELLOW = 4
-    ORANGE = 5
-    VIOLET = 6
+colorType = Tuple[int, int, int]
