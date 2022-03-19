@@ -1,4 +1,4 @@
-from typing import Tuple
+from typing import List
 
 import numpy as np
 import pygame
@@ -13,7 +13,12 @@ class Grid:
             [[Dot(i, j, np.random.randint(1, 6)) for i in range(self.grid_size)] for j in range(self.grid_size)])
 
     def render(self, window: pygame.Surface):
-        window_size: Tuple[int, int] = window.get_size()
         for i in range(self.grid_size):
             for j in range(self.grid_size):
                 self.dots[i, j].render(window, num_of_dots=self.grid_size)
+
+    def remove(self, dots_to_remove: List[Dot]) -> None:
+        pass
+
+    def update(self):
+        pass

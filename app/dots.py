@@ -1,49 +1,73 @@
-from typing import Final
+# Create logger
+import logging
+from typing import Optional
 
 import pygame
 
-from app.entities.colors import BaseColorTheme
-from app.entities.grid import Grid
 from app.entities.line import Line
+from app.utils.utils import print_score_and_turns
+from entities.colors import BaseColorTheme
+from entities.grid import Grid
+# Create logger and get constants
+from utils import check_events
+from utils.constants import *
 
-WINDOW_SIZE: Final[int] = 500
-FPS: Final[int] = 30
+logger = logging.getLogger()
+logging.basicConfig(format='%(levelname)s:%(message)s', level=logging.DEBUG)
+logging.info("Logging StartUp")
 
 # initialize pygame and create window
 pygame.init()
-screen = pygame.display.set_mode((WINDOW_SIZE, WINDOW_SIZE))
+screen = pygame.display.set_mode((WINDOW_SIZE, WINDOW_SIZE * 1.2))
 pygame.display.set_caption("Dots")
 clock = pygame.time.Clock()  # For syncing the FPS
-grid = Grid(size=12)
+grid = Grid(size=6)
 
 # Game loop
-running = True
+screen.fill(BaseColorTheme['BG'])
+grid.render(window=screen)
+running: int = True
+score: int = 0
+turns: int = 30
+line: Optional[Line] = None
 while running:
-
     # 1 Process input/events
     clock.tick(FPS)  # will make the loop run at the same speed all the time
-    for event in pygame.event.get():  # gets all the events which have occurred till now and keeps tab of them.
-        # listening for the X button at the top
-        if event.type == pygame.QUIT:
-            running = False
+    mouse_pos, running, line = check_events(line)
+    if line is None:
+        logger.debug("Generating New Line")
+        line = Line()
 
-    # 2 Update
+    # # 2 Update
+    # # Select dot that is in mouse position
+    # TODO: Check for efficiency
+    for dot in grid.dots.reshape(-1):  # We flatten the 2d array to iterate over it in a simpler manner
+        if dot.rect.collidepoint(mouse_pos):
+            logger.debug(f"Mouse in Dot {dot.x_ind}, {dot.y_ind}")
+            # Select dot and append to line
+            if line.append(dot.select()):
+                logger.info(f"Line is {len(line.nodes)} dots long.")
 
     # 3 Draw/render
     screen.fill(BaseColorTheme['BG'])
-    ########################
-
     grid.render(window=screen)
-    line = Line()
-    print(pygame.mouse.get_pressed(3))
-    while pygame.mouse.get_pressed(3)[0]:
-        for dot in grid.dots.reshape(-1):
-            if dot.mouse_in_zone(pygame.mouse.get_pos()):
-                line.append(dot)
-    if line.nodes:
-        print(line.nodes)
 
-    ########################
+    # Draw Line from last selected dot to current mouse position of there is a line
+    if len(line) > 0:
+        line.render(screen)
+
+    # If line end then remove dots, and update with new dots
+    if line.end:
+        grid.remove(line.nodes)
+        grid.update()
+        if line.valid:
+            score += len(line)
+            turns -= 1
+        logger.info(f"\tScore: {score} points! \n\t Turns Left {turns}")
+        line = None
+
+    # Print score
+    print_score_and_turns(screen, score, turns)
 
     # Done after drawing everything to the screen
     pygame.display.flip()
