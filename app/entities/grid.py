@@ -1,4 +1,4 @@
-from typing import Optional, Dict
+from typing import Optional, Dict, Tuple
 
 import numpy as np
 import pygame
@@ -11,7 +11,8 @@ class Grid:
     def __init__(self, size: int = 6,
                  screen: Optional[pygame.Surface] = None,
                  screen_dim: int = 500,
-                 color_theme: Dict[int, colorType] = BaseColorTheme
+                 color_theme: Dict[int, colorType] = BaseColorTheme,
+                 dot_radius: int = 10
                  ):
         self.grid_size: int = size
         self.screen: Optional[pygame.Surface] = screen
@@ -20,13 +21,16 @@ class Grid:
         self.dots: np.ndarray = np.random.randint(1, 6, (size, size))
         self.score: int = 0
         self.turns_left: int = 30
+        self.radius: int = dot_radius
 
-    def render(self, line: Optional[Line] = None):
+    def render(self, mouse_pos, line: Optional[Line] = None):
         if self.screen is None:
             self._init_screen()
+        self.screen.fill(BaseColorTheme['BG'])
         self._render_score_and_turns()
         self._render_dots()
-        self._render_line(line)
+        if line is not None:
+            self._render_line(line, mouse_pos)
 
         pygame.display.flip()
 
@@ -38,7 +42,6 @@ class Grid:
         pygame.display.init()
         pygame.display.set_caption("Dots")
         self.screen = pygame.display.set_mode((self.screen_dim, self.screen_dim * 1.2))
-        self.screen.fill(BaseColorTheme['BG'])
 
     def _render_score_and_turns(self):
         width, starting_height = self.screen_dim, self.screen_dim
@@ -70,8 +73,37 @@ class Grid:
         pygame.draw.line(self.screen, self.color_theme['text'], (width // 2, starting_height - score_title_rect.height),
                          (width // 2, starting_height + 0.8 * height), width=2)
 
-    def _render_line(self, line: Line):
-        pass
+    def _render_line(self, line: Line, mouse_pos: Tuple[int, int]):
+        if not len(line):
+            pass
+
+        spacing: float = self.screen_dim / (self.grid_size + 1)
+        line_color: colorType = self.color_theme[line.value]
+
+        for dot1, dot2 in zip(line.nodes[:-1], line.nodes[1:]):
+            dot1_y = (dot1[0] + 1) * spacing
+            dot1_x = (dot1[1] + 1) * spacing
+
+            dot2_y = (dot2[0] + 1) * spacing
+            dot2_x = (dot2[1] + 1) * spacing
+
+            pygame.draw.line(self.screen,
+                             line_color,
+                             (dot1_x, dot1_y),
+                             (dot2_x, dot2_y),
+                             width=line.width)
+
+        pygame.draw.line(self.screen,
+                         line_color,
+                         (dot2_x, dot2_y),
+                         pygame.mouse.get_pos(),
+                         width=line.width)
 
     def _render_dots(self):
-        pass
+        spacing: float = self.screen_dim / (self.grid_size + 1)
+        for i, row in enumerate(self.dots):
+            y: int = int((i + 1) * spacing)
+            for j, dot in enumerate(row):
+                x: int = int((j + 1) * spacing)
+                color = self.color_theme[dot]
+                pygame.draw.circle(self.screen, color, (x, y), self.radius)

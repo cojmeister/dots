@@ -1,68 +1,72 @@
 import logging
 from typing import List, Optional, Tuple, Dict
 
-import pygame
+import numpy as np
 
 from app.entities.colors import colorType, BaseColorTheme
-from app.entities.dot import Dot
 
 logger = logging.getLogger()
 
 
 class Line:
-    def __init__(self):
+    def __init__(self, grid: np.ndarray = np.empty((6, 6)),
+                 color_theme: Dict[int, colorType] = BaseColorTheme,
+                 ):
         self.value: Optional[int] = None
-        self.color: Optional[Tuple[int, int, int]] = None
-        self.nodes: List[Dot] = []
-        self.color_theme: Dict[int, colorType] = BaseColorTheme
+        self.grid: np.ndarray = grid
+        self.nodes: List[Tuple[int, int]] = []
+        self.color_theme: Dict[int | str, colorType] = color_theme
+        self.width = 3
         self.end: bool = False
+        self.closed: bool = False
         self.valid: bool = False
 
-    def append(self, dot: Dot) -> bool:
-        if self._check_values(dot):
-            # dot.select()
-            self.nodes.append(dot)
-            if len(self) > 1:
-                self.valid = True
+    def append(self, dot: Tuple[int, int]) -> bool:
+        # If line matches dot's color
+        if not self._check_values(dot):
+            return False
+        # If dot is adjacent, but not diagonal
+        if not self._check_indexes(dot):
+            return False
+        # If line is a closed loop
+        if self._checked_closed(dot):
+            self.closed = True
+        # Then append the node to the list:
+        self.nodes.append(dot)
+        # And return True
+        return True
+
+    def _check_values(self, dot: Tuple[int, int]) -> bool:
+        dot_value: int = self.grid[dot]
+        # If line is empty, make line value that of first dot
+        if not self.nodes:
+            self.value = dot_value
             return True
+
+        # If line isn't empty check if value is correct.
+        if self.value == dot_value:
+            return True
+
         return False
 
-    def _check_indexes(self, dot: Dot) -> bool:
-        logger.debug("Checking Indexes")
+    def _check_indexes(self, dot: Tuple[int, int]) -> bool:
+        if not self.nodes:
+            return True
+
         last_dot = self.nodes[-1]
 
-        vertical_condition: bool = 0 < (last_dot.y_ind - dot.y_ind) ** 2 <= 1
-        horizontal_condition: bool = 0 < (last_dot.x_ind - dot.x_ind) ** 2 <= 1
+        horizontal_condition: bool = 0 < (last_dot[0] - dot[0]) ** 2 <= 1
+        vertical_condition: bool = 0 < (last_dot[1] - dot[1]) ** 2 <= 1
 
         if vertical_condition or horizontal_condition:
-            logger.debug("\t Indexes Correct")
             return True
-        logger.debug("\t Indexes Incorrect")
         return False
 
-    def _check_values(self, dot: Dot) -> bool:
-        if not self.nodes:
-            self.value = dot.value
-            self.color: colorType = self.color_theme[self.value]
-            return True
+    def _checked_closed(self, dot: Tuple[int, int]) -> bool:
+        pass
 
-        if self.value == dot.value:
-            if dot not in self.nodes:
-                return self._check_indexes(dot)
-            else:
-                self._end()
-        return False
-
-    def render(self, window: pygame.surface, width: int = 3):
-        if len(self) > 1:
-            for dot1, dot2 in zip(self.nodes[:-1], self.nodes[1:]):
-                pygame.draw.line(window, self.color, dot1.rect.center, dot2.rect.center, width=width)
-
-        pygame.draw.line(window, self.color, self.nodes[-1].rect.center, pygame.mouse.get_pos(), width=width)
-
-    def _end(self):
-        logger.info(f"Ending line with {len(self)} dots.")
-        self.end = True
-
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self.nodes)
+
+    def __str__(self):
+        return "Line: " + ", ".join([f"({dot[0]},{dot[1]})" for dot in self.nodes])

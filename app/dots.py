@@ -2,6 +2,7 @@
 import logging
 from typing import Optional
 
+import numpy as np
 import pygame
 
 from app.entities.line import Line
@@ -28,13 +29,17 @@ screen.fill(BaseColorTheme['BG'])
 running: int = True
 score: int = 0
 turns: int = 30
-line: Optional[Line] = None
+line: Optional[Line] = Line(grid=np.ones((6, 6)))
+line.append((0, 0))
+line.append((1, 0))
+line.append((1, 1))
+print(line)
 while running:
     # 1 Process input/events
     clock.tick(FPS)  # will make the loop run at the same speed all the time
-    mouse_pos, running, line = check_events(line)
+    mouse_pos, running, _ = check_events()
 
-    grid.render(screen)
+    grid.render(mouse_pos, line)
     # if line is None:
     #     logger.debug("Generating New Line")
     #     line = Line()

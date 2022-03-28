@@ -10,7 +10,7 @@ from .constants import *
 logger = logging.getLogger()
 
 
-def check_events(line: Optional[Line]) -> Tuple[Tuple[int, int], bool, Line]:
+def check_events(line: Optional[Line] = None) -> Tuple[Tuple[int, int], bool, Line]:
     running: bool = True
     mouse_pos: Tuple[int, int] = (0, 0)
     for event in pygame.event.get():  # gets all the events which have occurred till now and keeps tab of them.
