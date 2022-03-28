@@ -1,23 +1,23 @@
-from typing import List
+from typing import Optional
 
 import numpy as np
 import pygame
 
-from app.entities.dot import Dot
+from app.entities.line import Line
 
 
 class Grid:
-    def __init__(self, size: int = 6):
+    def __init__(self, size: int = 6, screen: Optional[pygame.Surface] = None,
+                 screen_dim: int = 500, fps: int = 30):
         self.grid_size: int = size
-        self.dots: np.ndarray = np.array(
-            [[Dot(i, j, np.random.randint(1, 6)) for i in range(self.grid_size)] for j in range(self.grid_size)])
+        self.dots: np.ndarray = np.random.randint(1, 6, (6, 6))
+        self.screen: Optional[pygame.Surface] = screen
+        self.screen_dim: int = screen_dim
+        self.fps: int = fps
+        self.score: int = 0
+        self.turns_left: int = 30
 
-    def render(self, window: pygame.Surface):
-        for i in range(self.grid_size):
-            for j in range(self.grid_size):
-                self.dots[i, j].render(window, num_of_dots=self.grid_size)
-
-    def remove(self, dots_to_remove: List[Dot]) -> None:
+    def render(self, line: Optional[Line] = None):
         pass
 
     def update(self):
