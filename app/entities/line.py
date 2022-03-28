@@ -10,17 +10,17 @@ logger = logging.getLogger()
 
 
 class Line:
-    def __init__(self):
+    def __init__(self, color_theme: Dict[int, colorType] = BaseColorTheme):
         self.value: Optional[int] = None
         self.color: Optional[Tuple[int, int, int]] = None
         self.nodes: List[Dot] = []
-        self.color_theme: Dict[int, colorType] = BaseColorTheme
+        self.color_theme: Dict[int, colorType] = color_theme
         self.end: bool = False
         self.valid: bool = False
+        self.closed: bool = False
 
     def append(self, dot: Dot) -> bool:
         if self._check_values(dot):
-            # dot.select()
             self.nodes.append(dot)
             if len(self) > 1:
                 self.valid = True
@@ -31,10 +31,12 @@ class Line:
         logger.debug("Checking Indexes")
         last_dot = self.nodes[-1]
 
-        vertical_condition: bool = 0 < (last_dot.y_ind - dot.y_ind) ** 2 <= 1
-        horizontal_condition: bool = 0 < (last_dot.x_ind - dot.x_ind) ** 2 <= 1
+        delta_x: int = (last_dot.x_ind - dot.x_ind) ** 2
+        delta_y: int = (last_dot.y_ind - dot.y_ind) ** 2
 
-        if vertical_condition or horizontal_condition:
+        condition: bool = 0 < delta_x + delta_y < 2
+
+        if condition:
             logger.debug("\t Indexes Correct")
             return True
         logger.debug("\t Indexes Incorrect")
@@ -47,11 +49,22 @@ class Line:
             return True
 
         if self.value == dot.value:
-            if dot not in self.nodes:
-                return self._check_indexes(dot)
-            else:
-                self._end()
+            return self._check_in_line(dot)
+
         return False
+
+    def _check_in_line(self, dot: Dot) -> bool:
+        if len(self) < 2:
+            return self._check_indexes(dot)
+
+        if dot is self.nodes[-1]:
+            return self._end(closed=False)
+        elif dot is self.nodes[-2]:
+            return False
+        elif dot in self.nodes[:-2]:
+            return self._end(closed=True)
+
+        return self._check_indexes(dot)
 
     def render(self, window: pygame.surface, width: int = 3):
         if len(self) > 1:
@@ -60,9 +73,12 @@ class Line:
 
         pygame.draw.line(window, self.color, self.nodes[-1].rect.center, pygame.mouse.get_pos(), width=width)
 
-    def _end(self):
+    def _end(self, closed: bool = False) -> bool:
+        if closed:
+            self.closed = True
         logger.info(f"Ending line with {len(self)} dots.")
         self.end = True
+        return False
 
     def __len__(self):
         return len(self.nodes)

@@ -49,10 +49,6 @@ class Dot:
 
         return x, y, spacing_x, spacing_y
 
-    @property
-    def xy(self) -> Tuple[int, int]:
-        return
-
     def mouse_in_zone(self, mouse_pos: Tuple[int, int], window: pygame.Surface,
                       num_of_dots: Union[int, Tuple[int, int]]) -> bool:
         """
@@ -76,3 +72,12 @@ class Dot:
         if delta_x and delta_y:
             return True
         return False
+
+    def __sub__(self, other: 'Dot') -> int:
+        return self.value - other.value
+
+    def __str__(self) -> str:
+        out = [f"Dot in {self.x_ind}, {self.y_ind}"]
+        out += ["Selected" if self.selected else ""]
+        out += [f"Value: {self.value}"]
+        return " - ".join(out)

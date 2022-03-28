@@ -4,13 +4,14 @@ from typing import Tuple, Dict, Union, Optional
 import pygame
 
 from app.entities.colors import BaseColorTheme, colorType
+from app.entities.grid import Grid
 from app.entities.line import Line
 from .constants import *
 
 logger = logging.getLogger()
 
 
-def check_events(line: Optional[Line]) -> Tuple[Tuple[int, int], bool, Line]:
+def check_events(line: Optional[Line], grid) -> Tuple[Tuple[int, int], bool, Line, Grid]:
     running: bool = True
     mouse_pos: Tuple[int, int] = (0, 0)
     for event in pygame.event.get():  # gets all the events which have occurred till now and keeps tab of them.
@@ -26,9 +27,11 @@ def check_events(line: Optional[Line]) -> Tuple[Tuple[int, int], bool, Line]:
                 if line is not None:
                     line.end = True
                     line.valid = False
+            if event.key == pygame.K_SPACE:
+                grid.randomize()
 
     # If no click then reset mouse pos
-    return mouse_pos, running, line
+    return mouse_pos, running, line, grid
 
 
 def print_score_and_turns(window: pygame.Surface, score: int, turns: int,
