@@ -12,14 +12,13 @@ logger = logging.getLogger()
 class Line:
     def __init__(self, grid: np.ndarray = np.empty((6, 6)),
                  color_theme: Dict[int, colorType] = BaseColorTheme,
+                 width=5
                  ):
         self.value: Optional[int] = None
         self.grid: np.ndarray = grid
         self.nodes: line_type = []
-        # self.nodes: line_type= [(0, 0), (1, 0), (2, 0), (3, 0), (3, 1), (3, 2), (2, 2), (1, 2), (0, 2),
-        #                                      (0, 1), (0, 0)]
         self.color_theme: Dict[int | str, colorType] = color_theme
-        self.width = 3
+        self.width = width
         self.end: bool = False
         self.closed: Optional[node_type] = None
         self.valid: bool = False
