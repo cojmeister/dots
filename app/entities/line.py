@@ -21,18 +21,32 @@ class Line:
         self.closed: bool = False
         self.valid: bool = False
 
-    def append(self, dot: Tuple[int, int]) -> bool:
+    def append(self, dot: Tuple[int, int] | None) -> bool:
+        if dot is None:
+            return False
         # If line matches dot's color
         if not self._check_values(dot):
             return False
+
+        # If line is being ended:
+        if not self._check_end(dot):
+            return False
+
         # If dot is adjacent, but not diagonal
         if not self._check_indexes(dot):
             return False
+
         # If line is a closed loop
         if self._checked_closed(dot):
             self.closed = True
+
         # Then append the node to the list:
+        # logger.debug(f"Appending Dot at {dot} \n\t Value: {self.grid[dot]}")
         self.nodes.append(dot)
+
+        # Check if valid
+        if len(self) >= 2:
+            self.valid = True
         # And return True
         return True
 
@@ -63,10 +77,26 @@ class Line:
         return False
 
     def _checked_closed(self, dot: Tuple[int, int]) -> bool:
-        pass
+        if dot in self.nodes[:-2]:
+            return True
+        return False
+
+    def _check_end(self, dot):
+        if len(self) == 0:
+            return True
+
+        if dot == self.nodes[-1]:
+            self.end = True
+            return False
+        return True
 
     def __len__(self) -> int:
         return len(self.nodes)
 
     def __str__(self):
-        return "Line: " + ", ".join([f"({dot[0]},{dot[1]})" for dot in self.nodes])
+        out = "Line"
+        if self.valid:
+            out += " - Valid"
+        if self.end:
+            out += " - Ended - "
+        return out + ", ".join([f"({dot[0]},{dot[1]})" for dot in self.nodes])
