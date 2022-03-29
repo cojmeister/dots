@@ -1,10 +1,10 @@
 import logging
-from typing import Optional, Tuple
+from typing import Optional
 
 import pygame
 
 from app.entities.line import Line
-from entities.colors import BaseColorTheme
+from entities.colors import BaseColorTheme, SecondaryColorTheme
 from entities.grid import Grid
 # Get constants
 from utils import check_events
@@ -23,7 +23,7 @@ pygame.display.set_caption("Dots")
 clock = pygame.time.Clock()  # For syncing the FPS
 
 # Initialize grid and first line
-color_theme = BaseColorTheme
+color_theme = SecondaryColorTheme
 grid = Grid(size=6, screen=screen, color_theme=color_theme)
 line: Optional[Line] = Line(grid=grid.dots, color_theme=color_theme)
 
@@ -36,7 +36,7 @@ while running:
     running, mouse_pos, esc, reset = check_events()
 
     if mouse_pos[-1]:
-        index: Tuple[int, int] = grid.get_mouse_ind(mouse_pos)
+        index: node_type = grid.get_mouse_ind(mouse_pos)
         line.append(index)
 
     if line.end:

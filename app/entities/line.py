@@ -1,9 +1,10 @@
 import logging
-from typing import List, Optional, Tuple, Dict
+from typing import Optional, Dict
 
 import numpy as np
 
 from app.entities.colors import colorType, BaseColorTheme
+from app.utils import line_type, node_type
 
 logger = logging.getLogger()
 
@@ -14,14 +15,16 @@ class Line:
                  ):
         self.value: Optional[int] = None
         self.grid: np.ndarray = grid
-        self.nodes: List[Tuple[int, int]] = []
+        self.nodes: line_type = []
+        # self.nodes: line_type= [(0, 0), (1, 0), (2, 0), (3, 0), (3, 1), (3, 2), (2, 2), (1, 2), (0, 2),
+        #                                      (0, 1), (0, 0)]
         self.color_theme: Dict[int | str, colorType] = color_theme
         self.width = 3
         self.end: bool = False
-        self.closed: bool = False
+        self.closed: Optional[node_type] = None
         self.valid: bool = False
 
-    def append(self, dot: Tuple[int, int] | None) -> bool:
+    def append(self, dot: node_type | None) -> bool:
         if dot is None:
             return False
         # If line matches dot's color
@@ -37,8 +40,9 @@ class Line:
             return False
 
         # If line is a closed loop
-        if self._checked_closed(dot):
-            self.closed = True
+        closed = self._checked_closed(dot)
+        if closed:
+            self.closed = closed
 
         # Then append the node to the list:
         # logger.debug(f"Appending Dot at {dot} \n\t Value: {self.grid[dot]}")
@@ -50,7 +54,7 @@ class Line:
         # And return True
         return True
 
-    def _check_values(self, dot: Tuple[int, int]) -> bool:
+    def _check_values(self, dot: node_type) -> bool:
         dot_value: int = self.grid[dot]
         # If line is empty, make line value that of first dot
         if not self.nodes:
@@ -63,23 +67,23 @@ class Line:
 
         return False
 
-    def _check_indexes(self, dot: Tuple[int, int]) -> bool:
+    def _check_indexes(self, dot: node_type) -> bool:
         if not self.nodes:
             return True
 
         last_dot = self.nodes[-1]
 
-        horizontal_condition: bool = 0 < (last_dot[0] - dot[0]) ** 2 <= 1
-        vertical_condition: bool = 0 < (last_dot[1] - dot[1]) ** 2 <= 1
+        delta_x: int = (last_dot[0] - dot[0]) ** 2
+        delta_y: int = (last_dot[1] - dot[1]) ** 2
 
-        if vertical_condition or horizontal_condition:
+        if 0 < delta_x + delta_y <= 1:
             return True
         return False
 
-    def _checked_closed(self, dot: Tuple[int, int]) -> bool:
+    def _checked_closed(self, dot: node_type) -> Optional[node_type]:
         if dot in self.nodes[:-2]:
-            return True
-        return False
+            return dot
+        return None
 
     def _check_end(self, dot):
         if len(self) == 0:
