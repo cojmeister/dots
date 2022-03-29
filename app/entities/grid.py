@@ -13,7 +13,7 @@ class Grid:
                  screen: Optional[pygame.Surface] = None,
                  screen_dim: int = 500,
                  color_theme: Dict[int, colorType] = BaseColorTheme,
-                 dot_radius: int = 10,
+                 dot_radius: int = 12,
                  clock: Optional[pygame.time.Clock] = None,
                  fps: int = 30
                  ):
@@ -31,7 +31,7 @@ class Grid:
     def render(self, line: Optional[Line] = None):
         if self.screen is None:
             self._init_screen()
-        self.screen.fill(BaseColorTheme['BG'])
+        self.screen.fill(self.color_theme['BG'])
         self._render_score_and_turns()
         self._render_dots()
         if line is not None and len(line) > 0:

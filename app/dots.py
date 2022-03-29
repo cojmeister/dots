@@ -9,6 +9,7 @@ from entities.grid import Grid
 # Get constants
 from utils import check_events
 from utils.constants import *
+from utils.utils import render_end_screen
 
 # Create logger
 logger = logging.getLogger()
@@ -29,6 +30,8 @@ line: Optional[Line] = Line(grid=grid.dots, color_theme=color_theme)
 
 # Game loop
 running: int = True
+end_screen: bool = False
+
 while running:
     # 1 Process input/events
     clock.tick(FPS)  # will make the loop run at the same speed all the time
@@ -57,14 +60,21 @@ while running:
                     color_theme=color_theme)
 
     if grid.turns_left == 0:
-        logger.info("Game finishing")
-        for i in range(10):
-            pygame.time.wait(1_000)
-            logger.info(f"Closing Window in {10 - i} seconds")
-
-        running = False
+        end_screen: bool = True
 
     # 3 Render Screen
-    grid.render(line)
+    if not end_screen:
+        grid.render(line)
+    else:
+        running, reset_end = render_end_screen(color_theme, screen, mouse_pos[-1], grid.score)
+
+        if reset_end and mouse_pos[-1]:
+            logger.info("Game Restart")
+            grid.reset()
+            line = Line(grid=grid.dots,
+                        color_theme=color_theme)
+            end_screen = False
+
+logger.info("Quitting Game")
 
 pygame.quit()
