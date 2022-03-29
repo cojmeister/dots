@@ -1,10 +1,11 @@
-from typing import Optional, Dict, Tuple, Any
+from typing import Optional, Dict, Tuple, Any, List
 
 import numpy as np
 import pygame
 
 from app.entities.colors import colorType, BaseColorTheme
 from app.entities.line import Line
+from app.utils import line_type, node_type
 
 
 class Grid:
@@ -46,6 +47,8 @@ class Grid:
             self.score += len(line)
             self._remove_line(line)
         else:
+            if len(line) > 4:
+                self._find_internals(line)
             self.score += (self.dots == line.value).sum()
             self._remove_value(line.value)
 
@@ -132,7 +135,7 @@ class Grid:
         self.turns_left: int = 30
         self.dots = np.random.randint(1, 6, (self.grid_size, self.grid_size))
 
-    def get_mouse_ind(self, mouse_pos: Tuple[Any, bool]) -> Tuple[int, int]:
+    def get_mouse_ind(self, mouse_pos: Tuple[Any, bool] | Tuple[int, int, bool]) -> node_type:
         mouse_x, mouse_y, _ = mouse_pos
 
         if mouse_x < self.screen_dim // 2:
@@ -169,7 +172,7 @@ class Grid:
                 return self._find_index(start_x, end_x, start_y, end_y, mouse_x, mouse_y)
 
     def _find_index(self, start_x: int, end_x: int, start_y: int, end_y: int, mouse_x: int, mouse_y: int) \
-            -> Tuple[int, int] | None:
+            -> node_type | None:
         spacing: float = self.screen_dim / (self.grid_size + 1)
 
         for i in range(start_x, end_x):
@@ -178,7 +181,7 @@ class Grid:
                 y_pos: float = (j + 1) * spacing
 
                 distance: float = np.sqrt((mouse_x - x_pos) ** 2 + (mouse_y - y_pos) ** 2)
-                if distance <= self.radius:
+                if distance <= self.radius * 2:
                     return j, i
 
         return None
@@ -199,3 +202,20 @@ class Grid:
             col: int = dot[1]
             self.dots[1:dot[0] + 1, col] = self.dots[:dot[0], col]
             self.dots[0, dot[1]] = np.random.randint(1, 6)
+
+    def _find_internals(self, line: Line):
+        perimeter: line_type = self._find_perimeter(line)
+        perimeter.sort(key=lambda x: x[0])
+        perimeter: np.ndarray = np.array(perimeter)
+        for row_num in np.unique(perimeter[:, 0]):
+            if len([node for node in perimeter if node[0] == row_num]) < 3:
+                left_right = perimeter[perimeter[:, 0] == row_num]
+                left_right = np.sort(left_right, 0)
+                left = left_right[0][1]
+                right = left_right[1][1]
+                self.dots[row_num, left:right] = line.value
+
+    @staticmethod
+    def _find_perimeter(line: Line) -> line_type:
+        start_stop: List[int] = [i for i, node in enumerate(line.nodes) if node == line.closed]
+        return line.nodes[start_stop[0]:start_stop[1]]
