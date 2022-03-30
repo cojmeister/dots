@@ -47,17 +47,38 @@ class Dots(gym.Env, ABC):
     The grid is then updated and a new turn begins.
 
     ### Rewards:
-    * 0.1 for dot correctly appended to line
+    * 0.0 for dot correctly appended to line
     * 1*N where N is the score added to the game
-    * -0.5 when an incorrect dot is selected.
+    * -1.0 when an incorrect dot is selected.
+    Unless a factor dict is provided.
 
-    ### Starting State
+    ### Starting State:
     The starting state is a randomly initialized grid.
     30 Turns left and score is 0.
+    Unless turns left is provided.
 
-    ### Episode Termination
+    ### Episode Termination:
     The episode terminates when there are no turns left, i.e.:
      - not bool(turns_left>0)
+
+    ### Arguments:
+    Parameters
+    ----------
+    initial_turns: int with the default amount of initial turns, it will always be this value;
+                    unless specified in reset method
+    grid_size: int  -grid size for gameplay.
+    rewards: a Dict of rewards in the form of {"append": _, "end": _, "fail_to_append": _}
+
+    '''
+    env = Dots(initial_turns=10,  grid_size=5)
+    '''
+
+    or
+
+    '''
+    rewards = {"append": 0.1, "end": 1, "fail_to_append": -5}
+    env = Dots(rewards=rewards)
+    '''
 
     """
     metadata = {
@@ -65,7 +86,10 @@ class Dots(gym.Env, ABC):
         "render_fps": FPS,
     }
 
-    def __init__(self):
+    def __init__(self,
+                 initial_turns: int = 30,
+                 grid_size: int = 6,
+                 rewards: Dict[str, float] = None):
         pygame.init()
         self.screen: Optional[pygame.Surface] = None
         self.clock: Optional[pygame.time.Clock] = None
@@ -76,14 +100,25 @@ class Dots(gym.Env, ABC):
         self.max_score: Final[int] = 1_000
 
         self.min_turns: Final[int] = 0
-        self.max_turns: Final[int] = 30
+        self.max_turns: Final[int] = initial_turns
 
-        self.action_space = spaces.MultiDiscrete([6, 6], dtype=np.uint8)
+        self.default_initial_turns: int = initial_turns
+        self.default_grid_size: int = grid_size
+
+        if rewards is None:
+            self.rewards: Dict[str, float] = {'append': 0,
+                                              'end': 1,
+                                              'fail_to_append': -1}
+        else:
+            self.rewards: Dict[str, float] = rewards
+
+        self.action_space = spaces.MultiDiscrete([self.default_grid_size, self.default_grid_size], dtype=np.uint8)
 
         self.low = np.array([self.min_score, self.min_turns], dtype=np.uint32)
         self.high = np.array([self.max_score, self.max_turns], dtype=np.uint32)
 
-        self.observation_space = spaces.Box(low=1, high=6, shape=(6, 6), dtype=np.uint8)
+        self.observation_space = spaces.Box(low=1, high=6, shape=(self.default_grid_size, self.default_grid_size),
+                                            dtype=np.uint8)
 
     def _destroy(self):
         if not self.grid and not self.grid:
@@ -91,8 +126,13 @@ class Dots(gym.Env, ABC):
         self.grid = None
         self.line = None
 
-    def _create_grid(self, grid_size: int = 6):
-        self.grid = Grid(size=grid_size, screen=self.screen)
+    def _create_grid(self,
+                     initial_turns: Optional[int] = None):
+        if initial_turns is None:
+            initial_turns = self.default_initial_turns
+        self.grid = Grid(size=self.default_grid_size,
+                         screen=self.screen,
+                         initial_turns=initial_turns)
         self.line = Line(grid=self.grid.dots)
 
     def step(self, action: np.ndarray | List[int]) -> Tuple[observation_type, float, bool, Dict[str, int]]:
@@ -106,12 +146,12 @@ class Dots(gym.Env, ABC):
         done: bool = not bool(self.grid.turns_left > 0)
 
         if self.line.append(action):
-            reward = 0.1
+            reward = self.rewards['append'] * 0.1
         elif self.line.end:
-            reward = self.grid.update(self.line)
+            reward = self.rewards['end'] * self.grid.update(self.line)
             self.line = Line(self.grid.dots)
         else:
-            reward = -0.5
+            reward = self.rewards["fail_to_append"] * 1
 
         info: Dict[str, int] = {"score": self.grid.score, "turns_left": self.grid.turns_left}
 
@@ -122,10 +162,11 @@ class Dots(gym.Env, ABC):
         return self.grid.dots
 
     def reset(self,
-              seed: Optional[int] = None,
               return_info: bool = False,
-              options: Optional[dict] = None) -> observation_type | Tuple[observation_type, Dict[str, int]]:
-        self._create_grid()
+              initial_turns: Optional[int] = None) -> observation_type | Tuple[observation_type, Dict[str, int]]:
+        if initial_turns is None:
+            initial_turns = self.default_initial_turns
+        self._create_grid(initial_turns)
 
         if not return_info:
             return self._get_obs
@@ -134,3 +175,16 @@ class Dots(gym.Env, ABC):
 
     def render(self, mode="human"):
         return NotImplementedError
+
+    def __repr__(self) -> str:
+        out: List[str] = ["Dots environment;"]
+
+        grid_size = self.grid.grid_size if self.grid is not None else self.default_grid_size
+        turns = self.grid.turns_left if self.grid is not None else self.default_initial_turns
+        out += [f"Grid Size: {grid_size} - Initial Turns: {turns}"]
+        out += [f"Action Space: {self.action_space}"]
+        out += [f"Observation Space: {self.observation_space}"]
+        return "\n".join(out)
+
+    def __str__(self) -> str:
+        return self.__repr__()

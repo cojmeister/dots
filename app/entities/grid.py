@@ -11,19 +11,21 @@ from app.utils import line_type, node_type
 class Grid:
     def __init__(self, size: int = 6,
                  screen: Optional[pygame.Surface] = None,
+                 initial_turns: int = 30,
                  screen_dim: int = 500,
                  color_theme: Dict[int, colorType] = BaseColorTheme,
                  dot_radius: int = 12,
                  clock: Optional[pygame.time.Clock] = None,
                  fps: int = 30
                  ):
+
         self.grid_size: int = size
         self.screen: Optional[pygame.Surface] = screen
         self.screen_dim: int = screen_dim
         self.color_theme: Dict[int | str, colorType] = color_theme
         self.dots: np.ndarray = np.random.randint(1, 6, (size, size))
         self.score: int = 0
-        self.turns_left: int = 5
+        self.turns_left: int = initial_turns
         self.radius: int = dot_radius
         self.clock: pygame.time.Clock = clock
         self.fps: int = fps
