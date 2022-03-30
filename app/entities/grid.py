@@ -23,7 +23,7 @@ class Grid:
         self.color_theme: Dict[int | str, colorType] = color_theme
         self.dots: np.ndarray = np.random.randint(1, 6, (size, size))
         self.score: int = 0
-        self.turns_left: int = 30
+        self.turns_left: int = 5
         self.radius: int = dot_radius
         self.clock: pygame.time.Clock = clock
         self.fps: int = fps
@@ -39,18 +39,20 @@ class Grid:
 
         pygame.display.flip()
 
-    def update(self, line: Line):
+    def update(self, line: Line) -> int:
         if not line.valid:
-            return
+            return 0
         self.turns_left -= 1
         if not line.closed:
-            self.score += len(line)
+            delta = len(line)
             self._remove_line(line)
         else:
-            if len(line) > 4:
-                self._find_internals(line)
-            self.score += (self.dots == line.value).sum()
+            # if len(line) > 4:
+            #     self._find_internals(line)
+            delta = (self.dots == line.value).sum()
             self._remove_value(line.value)
+        self.score += delta
+        return delta
 
     def _init_screen(self):
         pygame.init()

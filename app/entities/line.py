@@ -1,5 +1,5 @@
 import logging
-from typing import Optional, Dict
+from typing import Optional, Dict, List
 
 import numpy as np
 
@@ -23,7 +23,8 @@ class Line:
         self.closed: Optional[node_type] = None
         self.valid: bool = False
 
-    def append(self, dot: node_type | None) -> bool:
+    def append(self, dot: node_type | None | List[int] | np.ndarray) -> bool:
+        dot = tuple(int(i) for i in dot)
         if dot is None:
             return False
         # If line matches dot's color
