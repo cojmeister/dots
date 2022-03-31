@@ -10,8 +10,10 @@ develop an environment mimicking gym environments (from OpenAI) in order to teac
 In order to play the game the app/dots.py file must be run, it will render a pygame window with the minimal viable game
 to play. Most things are changeable and graphics weren't the goal (nor are they my area of expertise).
 
-![A line being selected.](imgs/img2.png)
-
+<p align="center">
+  <img alt="A line being selected." height="600" src="imgs/img2.png" width="500"/>
+</p>
+  
 ### Game Instructions
 
 Select a dot with a click, then select and adjacent dot of the same color in order to append it to the line. If the line
@@ -21,8 +23,11 @@ color in the grid. When a line is ended, it's dots are removed and the dots abov
 closed loop, all dots of that color will be removed and the dots above them will be shifted downwards.
 
 Example of a line that is a closed loop:
-![](imgs/loop.png)
 
+<p align="center">
+  <img alt="A Closed Loop." height="600" src="imgs/loop.png" width="500"/>
+</p>
+  
 ## The RL Environment
 
 The RL environment currently 'works' with SAC, PPO and TD3 algorithms presented in the Stable-Baselines3 library. Works
