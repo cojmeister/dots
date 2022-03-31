@@ -1,5 +1,7 @@
 from abc import ABC
-from typing import Optional, Final, Tuple, Dict, Type, List
+from enum import Enum, auto
+from itertools import product, groupby
+from typing import Optional, Final, Tuple, Dict, Type, List, Any, Set
 
 import gym
 import numpy as np
@@ -8,7 +10,7 @@ from gym import spaces
 
 from app.entities.grid import Grid
 from app.entities.line import Line
-from app.utils.constants import FPS
+from app.utils.constants import FPS, node_type
 
 observation_type: Type = np.ndarray
 
@@ -73,8 +75,6 @@ class Dots(gym.Env, ABC):
     env = Dots(initial_turns=10,  grid_size=5)
     '''
 
-    or
-
     '''
     rewards = {"append": 0.1, "end": 1, "fail_to_append": -5}
     env = Dots(rewards=rewards)
@@ -82,9 +82,14 @@ class Dots(gym.Env, ABC):
 
     """
     metadata = {
-        "render_modes": ["human"],
+        "render_modes": ["human", "ansi"],
         "render_fps": FPS,
     }
+
+    class PossibleActions(Enum):
+        ProperLine = auto()
+        SeparatedPoints = auto()
+        DifferentValues = auto()
 
     def __init__(self,
                  initial_turns: int = 30,
@@ -112,13 +117,25 @@ class Dots(gym.Env, ABC):
         else:
             self.rewards: Dict[str, float] = rewards
 
-        self.action_space = spaces.MultiDiscrete([self.default_grid_size, self.default_grid_size], dtype=np.uint8)
+        # Defining action space as a selection of the next dot, if the same dot is selected then release
+        # self.action_space = spaces.MultiDiscrete([self.default_grid_size, self.default_grid_size], dtype=np.uint8)
 
-        self.low = np.array([self.min_score, self.min_turns], dtype=np.uint32)
-        self.high = np.array([self.max_score, self.max_turns], dtype=np.uint32)
+        # But, what if we define the action space as the selection of the line?
+        # We define a binary box, where True stands for selected, we'll penalize non-lines and reward as now.
+        self.action_space = spaces.Box(low=0, high=1, shape=(self.default_grid_size, self.default_grid_size),
+                                       dtype=bool)
 
+        # Observation Space is an NxN grid with the amount of dots in grid.
         self.observation_space = spaces.Box(low=1, high=6, shape=(self.default_grid_size, self.default_grid_size),
                                             dtype=np.uint8)
+
+        # This is currently irrelevant, in case that the algorithm can interpret Tuples then we'd be able to return the
+        # score and turns left in the observation as well.
+        # self.low = np.array([self.min_score, self.min_turns], dtype=np.uint32)
+        # self.high = np.array([self.max_score, self.max_turns], dtype=np.uint32)
+        # self.observation_space = spaces.Tuple(
+        #     spaces.Box(low=1, high=6, shape=(self.default_grid_size, self.default_grid_size), dtype=np.uint8),
+        #     spaces.Box(low=self.low, high=self.high))
 
     def _destroy(self):
         if not self.grid and not self.grid:
@@ -135,13 +152,15 @@ class Dots(gym.Env, ABC):
                          initial_turns=initial_turns)
         self.line = Line(grid=self.grid.dots)
 
-    def step(self, action: np.ndarray | List[int]) -> Tuple[observation_type, float, bool, Dict[str, int]]:
+    def step(self, action: np.ndarray) -> Tuple[observation_type, float, bool, Dict[str, int]]:
         assert self.action_space.contains(
             action
         ), f"{action!r} ({type(action)}) invalid"
 
         if self.grid is None:
             self._create_grid()
+
+        reward = self._get_reward(action)
 
         done: bool = not bool(self.grid.turns_left > 0)
 
@@ -188,3 +207,45 @@ class Dots(gym.Env, ABC):
 
     def __str__(self) -> str:
         return self.__repr__()
+
+    def parse_action(self, action: np.ndarray) -> 'Dots.PossibleActions':
+        def manhattan(tuple1: node_type, tuple2: node_type) -> float:
+            # Returns the Manhattan distance between two tuples.
+            return abs(tuple1[0] - tuple2[0]) + abs(tuple1[1] - tuple2[1])
+
+        # Turning action matrix (selected indexes) into list of tuples.
+        input_list: List[node_type | Tuple[Any]] = [pair for pair in zip(*np.where(action))]
+
+        manhattan_tuples = [sorted(sub) for sub in product(input_list, repeat=2)
+                            if manhattan(*sub) == 1]
+
+        res_dict: Dict[node_type, Set[node_type]] = {ele: {ele} for ele in input_list}
+
+        for tup1, tup2 in manhattan_tuples:
+            res_dict[tup1] |= res_dict[tup2]
+            res_dict[tup2] = res_dict[tup1]
+
+        res: List[List[node_type]] = [[*next(val)] for key, val in groupby(
+            sorted(res_dict.values(), key=id), id)]
+
+        return res
+
+        # print(res)
+
+        # if len(res) > 1:
+        #     return self.PossibleActions.SeparatedPoints
+        # res = res[0]
+        # print(res)
+        #
+        # if len(np.unique(self.grid.dots[index] for index in res)) > 1:
+        #     return self.PossibleActions.DifferentValues
+        #
+        # return self.PossibleActions.ProperLine
+
+    def _get_reward(self, action: np.ndarray) -> float:
+        reward: float = 0.0
+        action_type: 'Dots.PossibleActions' = self.parse_action(action)
+        if action_type is self.PossibleActions.ProperLine:
+            reward = self.grid.update(self.line)
+
+        return reward
