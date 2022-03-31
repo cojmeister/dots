@@ -1,7 +1,6 @@
 from abc import ABC
 from enum import Enum, auto
-from itertools import product, groupby
-from typing import Optional, Final, Tuple, Dict, Type, List, Any, Set
+from typing import Optional, Tuple, Dict, Type, List
 
 import gym
 import numpy as np
@@ -33,12 +32,13 @@ class Dots(gym.Env, ABC):
     each number is a different dot color.
 
     ### Action Space
-    The actions are given as the indexes of the dots in the array, thus it considered a multi-discrete action space,
-    where the two deterministic actions are:
-    | Num | Observation                                                 | Min                | Max    |
-    |-----|-------------------------------------------------------------|--------------------|--------|
-    | 0   | X-Index of dot selected.                                    | 0                  | 5      |
-    | 1   | Y-Index of dot selected.                                    | 0                  | 5      |
+    The action space is given by an N*N vector, which is then reshaped into an (N,N) matrix.
+    The values vary from 0 to 36:
+        -0 being not selected
+        -1 being the line first point
+        -2 the second
+        - and so on,
+    it doesn't need to cover all dots, as long as it is 2 dots long it works.
 
     ### Game Dynamics:
     Given an action if there is no selected dot, the dot will be selected.  Otherwise, if the dot is adjacent to the
@@ -69,7 +69,6 @@ class Dots(gym.Env, ABC):
     initial_turns: int with the default amount of initial turns, it will always be this value;
                     unless specified in reset method
     grid_size: int  -grid size for gameplay.
-    rewards: a Dict of rewards in the form of {"append": _, "end": _, "fail_to_append": _}
 
     '''
     env = Dots(initial_turns=10,  grid_size=5)
@@ -87,43 +86,43 @@ class Dots(gym.Env, ABC):
     }
 
     class PossibleActions(Enum):
+        """
+        An Enum class representing the different possible outcomes for the actions, from here
+        we set the reward.
+        """
         ProperLine = auto()
-        SeparatedPoints = auto()
-        DifferentValues = auto()
+        GapInNodes = auto()
+        RepeatedPoints = auto()
+        LineInvalid = auto()
+        LineTooShort = auto()
 
     def __init__(self,
                  initial_turns: int = 30,
-                 grid_size: int = 6,
-                 rewards: Dict[str, float] = None):
+                 grid_size: int = 6):
+        # Initialize Pygame and set variables
         pygame.init()
         self.screen: Optional[pygame.Surface] = None
         self.clock: Optional[pygame.time.Clock] = None
+
+        # Set Grid and Line, needed to play the game.
         self.grid: Optional[Grid] = None
         self.line: Optional[Line] = None
 
-        self.min_score: Final[int] = 0
-        self.max_score: Final[int] = 1_000
-
-        self.min_turns: Final[int] = 0
-        self.max_turns: Final[int] = initial_turns
-
         self.default_initial_turns: int = initial_turns
         self.default_grid_size: int = grid_size
-
-        if rewards is None:
-            self.rewards: Dict[str, float] = {'append': 0,
-                                              'end': 1,
-                                              'fail_to_append': -1}
-        else:
-            self.rewards: Dict[str, float] = rewards
 
         # Defining action space as a selection of the next dot, if the same dot is selected then release
         # self.action_space = spaces.MultiDiscrete([self.default_grid_size, self.default_grid_size], dtype=np.uint8)
 
         # But, what if we define the action space as the selection of the line?
-        # We define a binary box, where True stands for selected, we'll penalize non-lines and reward as now.
-        self.action_space = spaces.Box(low=0, high=1, shape=(self.default_grid_size, self.default_grid_size),
-                                       dtype=bool)
+        # We define a box, where the value of the number represents the index in the line
+        space_squared: int = int(self.default_grid_size ** 2)
+        self.action_space = spaces.Box(low=0, high=space_squared,
+                                       shape=(space_squared,),
+                                       dtype=int)
+        # self.action_space = spaces.Box(low=0, high=int(space_squared),
+        #                                        shape=(self.default_grid_size, self.default_grid_size),
+        #                                        dtype=int)
 
         # Observation Space is an NxN grid with the amount of dots in grid.
         self.observation_space = spaces.Box(low=1, high=6, shape=(self.default_grid_size, self.default_grid_size),
@@ -131,20 +130,43 @@ class Dots(gym.Env, ABC):
 
         # This is currently irrelevant, in case that the algorithm can interpret Tuples then we'd be able to return the
         # score and turns left in the observation as well.
+        # self.min_score: Final[int] = 0
+        # self.max_score: Final[int] = 1_000
+        #
+        # self.min_turns: Final[int] = 0
+        # self.max_turns: Final[int] = initial_turns
+        #
         # self.low = np.array([self.min_score, self.min_turns], dtype=np.uint32)
         # self.high = np.array([self.max_score, self.max_turns], dtype=np.uint32)
+        #
         # self.observation_space = spaces.Tuple(
         #     spaces.Box(low=1, high=6, shape=(self.default_grid_size, self.default_grid_size), dtype=np.uint8),
         #     spaces.Box(low=self.low, high=self.high))
 
     def _destroy(self):
+        """
+        Destroys the grid and line variables
+        Returns
+        -------
+
+        """
         if not self.grid and not self.grid:
-            return
+            pass
         self.grid = None
         self.line = None
 
     def _create_grid(self,
                      initial_turns: Optional[int] = None):
+        """
+        Creates a grid and line with proper grid nodes.
+        Parameters
+        ----------
+        initial_turns: optional parameter that sets the initial turns for the rest of the environment
+
+        Returns
+        -------
+
+        """
         if initial_turns is None:
             initial_turns = self.default_initial_turns
         self.grid = Grid(size=self.default_grid_size,
@@ -153,6 +175,24 @@ class Dots(gym.Env, ABC):
         self.line = Line(grid=self.grid.dots)
 
     def step(self, action: np.ndarray) -> Tuple[observation_type, float, bool, Dict[str, int]]:
+        """
+        The environments' step function, each time this is called, the environment processes an action,
+        and applies a reward. Each time it is called it is considered a time-step.
+
+        Parameters
+        ----------
+        action: a numpy vector with values ranging: [0,36] containing a set of numbers selecting the dots
+         (numbers must be in ascending order)
+
+        Returns
+        -------
+        A tuple containing: observation, reward, done and info
+        observation: the next state, an N*N matrix (N is grid size), showing the dots.
+        reward: the reward for the step.
+        done: whether the episode is done or not.
+        info: a dict containing additional info: score, and turns left.
+
+        """
         assert self.action_space.contains(
             action
         ), f"{action!r} ({type(action)}) invalid"
@@ -164,35 +204,48 @@ class Dots(gym.Env, ABC):
 
         done: bool = not bool(self.grid.turns_left > 0)
 
-        if self.line.append(action):
-            reward = self.rewards['append'] * 0.1
-        elif self.line.end:
-            reward = self.rewards['end'] * self.grid.update(self.line)
-            self.line = Line(self.grid.dots)
-        else:
-            reward = self.rewards["fail_to_append"] * 1
-
         info: Dict[str, int] = {"score": self.grid.score, "turns_left": self.grid.turns_left}
 
         return self._get_obs, reward, done, info
 
     @property
     def _get_obs(self) -> observation_type:
+        """
+        Get the observation
+        Returns
+        -------
+        The observation:
+            The next state, an N*N matrix (N is grid size), showing the dots.
+        """
         return self.grid.dots
 
     def reset(self,
               return_info: bool = False,
-              initial_turns: Optional[int] = None) -> observation_type | Tuple[observation_type, Dict[str, int]]:
+              initial_turns: Optional[int] = None) \
+            -> observation_type | Tuple[observation_type, Dict[str, int]]:
+        """
+        Resets the environment when the episode is finished.
+        Parameters
+        ----------
+        return_info: if true the reset method returns info (turns left and score)
+        initial_turns: ability to set the amount of initial turns.
+
+        Returns
+        -------
+        The initial observation: the next state, an N*N matrix (N is grid size), showing the dots.
+        If initial_turns is true: returns info as well, a dict containing additional info: score, and turns left.
+
+        """
         if initial_turns is None:
             initial_turns = self.default_initial_turns
         self._create_grid(initial_turns)
 
-        if not return_info:
-            return self._get_obs
-        else:
+        if return_info:
             return self._get_obs, {"score": 0, "turns_left": 30}
+        else:
+            return self._get_obs
 
-    def render(self, mode="human"):
+    def render(self, mode: str = "human"):
         return NotImplementedError
 
     def __repr__(self) -> str:
@@ -209,43 +262,97 @@ class Dots(gym.Env, ABC):
         return self.__repr__()
 
     def parse_action(self, action: np.ndarray) -> 'Dots.PossibleActions':
+        """
+        Parses the action given in the step.
+        Basically reshapes the vector and set the values to ints,
+         and then applies different logics to returns the action type.
+        Parameters
+        ----------
+        action: an (N*N,) vector containing values [0,N*N], with the action taken.
+
+        Returns
+        -------
+        An enum of the action type made.
+        """
+
         def manhattan(tuple1: node_type, tuple2: node_type) -> float:
             # Returns the Manhattan distance between two tuples.
             return abs(tuple1[0] - tuple2[0]) + abs(tuple1[1] - tuple2[1])
 
-        # Turning action matrix (selected indexes) into list of tuples.
-        input_list: List[node_type | Tuple[Any]] = [pair for pair in zip(*np.where(action))]
+        def line_is_closable(last_node: node_type) -> bool:
+            # Determines whether the line can be a closed loop
+            for node in self.line.nodes[-2:]:
+                if manhattan(last_node, node) == 1:
+                    return True
+            return False
 
-        manhattan_tuples = [sorted(sub) for sub in product(input_list, repeat=2)
-                            if manhattan(*sub) == 1]
+        # Reshape the action
+        action = action.reshape((6, 6)).astype(int)
 
-        res_dict: Dict[node_type, Set[node_type]] = {ele: {ele} for ele in input_list}
+        # If there is only one value then the line is too short
+        if action.astype(bool).sum() <= 1:
+            return self.PossibleActions.LineTooShort
 
-        for tup1, tup2 in manhattan_tuples:
-            res_dict[tup1] |= res_dict[tup2]
-            res_dict[tup2] = res_dict[tup1]
+        nodes = []
+        end = int(np.max(action) + 1)
+        # For every dot selected
+        for i in range(1, end):
+            # Check which dot has been selected
+            x_ind, y_ind = np.where(action == i)
 
-        res: List[List[node_type]] = [[*next(val)] for key, val in groupby(
-            sorted(res_dict.values(), key=id), id)]
+            # If there is no such node, then there is a gap in the numbering
+            if len(x_ind) == 0:
+                return self.PossibleActions.GapInNodes
+            # If there is more than one selected node then there is a repeated point.
+            elif len(x_ind) > 1:
+                return self.PossibleActions.RepeatedPoints
+            # Otherwise, we append it to the interim list
+            else:
+                nodes.append((x_ind[0], y_ind[0]))
 
-        return res
+        # If all nodes in the interim list are appended to the line
+        if all([self.line.append(node) for node in nodes]):
+            # If the length of the line is bigger than 4 we check if its closable
+            if (len(self.line) > 4) and line_is_closable(nodes[-1]):
+                # If it is, then we close it
+                self.line.closed = True
+            else:
+                # Otherwise, we leave it open
+                self.line.closed = False
+            # Return a proper-line value because the nodes were appended successfully
+            return self.PossibleActions.ProperLine
 
-        # print(res)
-
-        # if len(res) > 1:
-        #     return self.PossibleActions.SeparatedPoints
-        # res = res[0]
-        # print(res)
-        #
-        # if len(np.unique(self.grid.dots[index] for index in res)) > 1:
-        #     return self.PossibleActions.DifferentValues
-        #
-        # return self.PossibleActions.ProperLine
+        # If the nodes are incorrect then  the line is invalid.
+        return self.PossibleActions.LineInvalid
 
     def _get_reward(self, action: np.ndarray) -> float:
+        """
+        Given an action calculate the reward.
+        Parameters
+        ----------
+        action: an (N*N,) vector containing values [0,N*N], with the action taken.
+
+        Returns
+        -------
+        The reward for doing such action.
+        """
         reward: float = 0.0
         action_type: 'Dots.PossibleActions' = self.parse_action(action)
+
+        if action_type is self.PossibleActions.LineTooShort:
+            reward = -10
+
         if action_type is self.PossibleActions.ProperLine:
             reward = self.grid.update(self.line)
+            self.line = Line(grid=self.grid.dots)
+
+        if action_type is self.PossibleActions.RepeatedPoints:
+            reward = -5.0
+
+        if action_type is self.PossibleActions.GapInNodes:
+            reward = -2.5
+
+        if action_type is self.PossibleActions.LineInvalid:
+            reward = -20.0
 
         return reward

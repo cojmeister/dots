@@ -45,7 +45,7 @@ class Grid:
         if not line.valid:
             return 0
         self.turns_left -= 1
-        if not line.closed:
+        if not bool(line.closed):
             delta = len(line)
             self._remove_line(line)
         else:
